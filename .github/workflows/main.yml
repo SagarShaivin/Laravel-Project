@@ -1,4 +1,4 @@
-name: Deploy Laravel to GCP Instance
+name: Deploy Laravel to GCP 
 
 on:
   push:
