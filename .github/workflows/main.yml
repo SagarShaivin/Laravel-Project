@@ -53,7 +53,8 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cp /var/www/laravel/.env.example /var/www/laravel/.env
+          cd /var/www/laravel
+          cp .env.example .env
           php artisan key:generate
           php artisan config:cache
 
