@@ -19,36 +19,50 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
+          # Add the repository for PHP 7.4 (or PHP 8.0 based on your local setup)
           sudo add-apt-repository ppa:ondrej/php -y
 
+          # Update package lists and install necessary software
           sudo apt-get update -y
           sudo apt-get install -y nginx php7.4-fpm php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql unzip curl git
 
+          # Install Composer
           curl -sS https://getcomposer.org/installer | php
           sudo mv composer.phar /usr/local/bin/composer
 
+          # Ensure Laravel directory exists
           sudo mkdir -p /var/www/laravel
 
+          # Adjust permissions
           sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
+          # Copy the latest code from GitHub
           rsync -a --delete --exclude='.env' --exclude='storage/' --exclude='vendor/' ./ /var/www/laravel
 
           cd /var/www/laravel
 
+          # Install PHP dependencies
           composer install --no-interaction --prefer-dist --optimize-autoloader
 
+          # Set up environment variables
           if [ ! -f ".env" ]; then
             cp .env.example .env
           fi
           php artisan key:generate
 
+          # Run database migrations
           php artisan migrate --force
 
+          # Set directory permissions
           sudo chown -R www-data:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel/storage
           sudo chmod -R 775 /var/www/laravel/bootstrap/cache
 
+          # Disable the default Nginx site
+          sudo rm /etc/nginx/sites-enabled/default
+
+          # Configure Nginx to serve the Laravel application
           sudo bash -c 'cat > /etc/nginx/sites-available/laravel << EOF
           server {
               listen 80;
@@ -74,6 +88,7 @@ jobs:
           }
           EOF'
 
+          # Enable the Laravel site and restart Nginx
           sudo ln -s /etc/nginx/sites-available/laravel /etc/nginx/sites-enabled/
           sudo nginx -t
           sudo systemctl restart nginx
