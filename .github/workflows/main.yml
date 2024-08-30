@@ -12,59 +12,27 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Upload files with SCP
+    - name: Setup SSH and Deploy Laravel
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_INSTANCE_IP }}
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # Create a temporary directory on the remote server
-          mkdir -p /tmp/laravel-deploy
+          # Add the repository for PHP 7.4
+          sudo add-apt-repository ppa:ondrej/php -y
+          sudo apt-get update -y
 
-    - name: Copy files with SCP
-      run: |
-        scp -i ${{ secrets.SSH_PRIVATE_KEY }} -o StrictHostKeyChecking=no -r ./ ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_INSTANCE_IP }}:/tmp/laravel-deploy
+          # Install necessary software
+          sudo apt-get install -y php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql unzip curl git
 
-    - name: Deploy Laravel application
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SSH_INSTANCE_IP }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          # Move files from the temporary directory to the target directory
-          sudo mv /tmp/laravel-deploy/* /var/www/laravel
-          
+          # Install Composer
+          curl -sS https://getcomposer.org/installer | php
+          sudo mv composer.phar /usr/local/bin/composer
+
+          # Ensure Laravel directory exists
+          sudo mkdir -p /var/www/laravel
+
           # Adjust directory ownership and permissions
-          sudo chown -R www-data:www-data /var/www/laravel
+          sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
-
-          # Install Composer dependencies
-          cd /var/www/laravel
-          if [ ! -f "artisan" ]; then
-            echo "artisan file not found!"
-            exit 1
-          fi
-          composer install --no-interaction --prefer-dist --optimize-autoloader
-
-          # Set up environment variables
-          if [ ! -f ".env" ]; then
-            cp .env.example .env
-          fi
-          php artisan key:generate
-
-          # Run database migrations
-          php artisan migrate --force
-
-          # Set directory permissions
-          sudo chmod -R 775 /var/www/laravel/storage
-          sudo chmod -R 775 /var/www/laravel/bootstrap/cache
-
-          # Create log file and set permissions
-          sudo touch /var/www/laravel/laravel-server.log
-          sudo chown www-data:www-data /var/www/laravel/laravel-server.log
-          sudo chmod 664 /var/www/laravel/laravel-server.log
-
-          # Run Laravel's built-in server
-          nohup php artisan serve --host=0.0.0.0 --port=8000 > /var/www/laravel/laravel-server.log 2>&1 &
