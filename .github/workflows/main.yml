@@ -37,8 +37,8 @@ jobs:
           sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
-          # Copy the latest code from GitHub
-          sudo rsync -a --delete --exclude='.env' --exclude='storage/' --exclude='vendor/' ./ /var/www/laravel
+          # Copy the latest code from GitHub, ensuring all necessary files are included
+          sudo rsync -a --delete ./ /var/www/laravel
 
           # Set permissions on the files just copied
           sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
@@ -46,6 +46,12 @@ jobs:
 
           # Change directory to Laravel project
           cd /var/www/laravel
+
+          # Verify artisan file presence
+          if [ ! -f "artisan" ]; then
+            echo "artisan file not found!"
+            exit 1
+          fi
 
           # Install PHP dependencies
           composer install --no-interaction --prefer-dist --optimize-autoloader
