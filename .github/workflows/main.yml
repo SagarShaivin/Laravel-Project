@@ -37,14 +37,14 @@ jobs:
           sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
-    - name: Copy files to GCP instance
-      uses: appleboy/scp-action@v0.1.1
+    - name: Copy files
+      uses: picodebr/copy-action@v1
       with:
-        host: ${{ secrets.SSH_INSTANCE_IP }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        source: "."
-        target: "/var/www/laravel"
+        ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh_user: ${{ secrets.SSH_USERNAME }}
+        ssh_host: ${{ secrets.SSH_INSTANCE_IP }}
+        source: .
+        destination: /var/www/laravel/
 
     - name: Run Laravel server
       uses: appleboy/ssh-action@v1.0.3
