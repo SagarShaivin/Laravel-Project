@@ -33,12 +33,16 @@ jobs:
           # Ensure Laravel directory exists
           sudo mkdir -p /var/www/laravel
 
-          # Adjust permissions
+          # Adjust directory ownership and permissions
           sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
           # Copy the latest code from GitHub
           sudo rsync -a --delete --exclude='.env' --exclude='storage/' --exclude='vendor/' ./ /var/www/laravel
+
+          # Set permissions on the files just copied
+          sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
+          sudo chmod -R 775 /var/www/laravel
 
           # Change directory to Laravel project
           cd /var/www/laravel
@@ -59,6 +63,11 @@ jobs:
           sudo chown -R www-data:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel/storage
           sudo chmod -R 775 /var/www/laravel/bootstrap/cache
+
+          # Create log file and set permissions
+          sudo touch /var/www/laravel/laravel-server.log
+          sudo chown ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel/laravel-server.log
+          sudo chmod 664 /var/www/laravel/laravel-server.log
 
           # Run Laravel's built-in server
           nohup php artisan serve --host=0.0.0.0 --port=8000 > /var/www/laravel/laravel-server.log 2>&1 &
