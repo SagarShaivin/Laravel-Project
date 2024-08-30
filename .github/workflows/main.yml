@@ -36,3 +36,23 @@ jobs:
           # Adjust directory ownership and permissions
           sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
+
+    - name: Copy files to GCP instance
+      uses: appleboy/scp-action@v0.1.1
+      with:
+        host: ${{ secrets.SSH_INSTANCE_IP }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "."
+        target: "/var/www/laravel"
+
+    - name: Run Laravel server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_INSTANCE_IP }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /var/www/laravel
+          composer install
+          php artisan serve --host=0.0.0.0 --port=8000
