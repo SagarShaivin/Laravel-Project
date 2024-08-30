@@ -1,0 +1,80 @@
+name: Deploy Laravel to GCP
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH and Deploy Laravel
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_INSTANCE_IP }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          sudo add-apt-repository ppa:ondrej/php -y
+
+          sudo apt-get update -y
+          sudo apt-get install -y nginx php7.4-fpm php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql unzip curl git
+
+          curl -sS https://getcomposer.org/installer | php
+          sudo mv composer.phar /usr/local/bin/composer
+
+          sudo mkdir -p /var/www/laravel
+
+          sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
+          sudo chmod -R 775 /var/www/laravel
+
+          rsync -a --delete --exclude='.env' --exclude='storage/' --exclude='vendor/' ./ /var/www/laravel
+
+          cd /var/www/laravel
+
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+
+          if [ ! -f ".env" ]; then
+            cp .env.example .env
+          fi
+          php artisan key:generate
+
+          php artisan migrate --force
+
+          sudo chown -R www-data:www-data /var/www/laravel
+          sudo chmod -R 775 /var/www/laravel/storage
+          sudo chmod -R 775 /var/www/laravel/bootstrap/cache
+
+          sudo bash -c 'cat > /etc/nginx/sites-available/laravel << EOF
+          server {
+              listen 80;
+              server_name _;
+              root /var/www/laravel/public;
+
+              index index.php index.html index.htm;
+
+              location / {
+                  try_files \$uri \$uri/ /index.php?\$query_string;
+              }
+
+              location ~ \.php$ {
+                  include snippets/fastcgi-php.conf;
+                  fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+                  fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+                  include fastcgi_params;
+              }
+
+              location ~ /\.ht {
+                  deny all;
+              }
+          }
+          EOF'
+
+          sudo ln -s /etc/nginx/sites-available/laravel /etc/nginx/sites-enabled/
+          sudo nginx -t
+          sudo systemctl restart nginx
+          sudo systemctl restart php7.4-fpm
