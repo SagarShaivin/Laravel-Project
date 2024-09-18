@@ -15,9 +15,9 @@ jobs:
     - name: Setup SSH and Deploy Laravel
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SSH_INSTANCE_IP }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        key: ${{ secrets.BASTION_PRIVATE_KEY }}
         script: |
           # Add the repository for PHP 7.4
           sudo add-apt-repository ppa:ondrej/php -y
@@ -30,23 +30,23 @@ jobs:
           # Ensure Laravel directory exists
           sudo mkdir -p /var/www/laravel
           # Adjust directory ownership and permissions
-          sudo chown -R ${{ secrets.SSH_USERNAME }}:www-data /var/www/laravel
+          sudo chown -R ${{ secrets.BASTION_INSTANCE_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
     - name: Copy files
       uses: picodebr/copy-action@v1
       with:
-        ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        ssh_user: ${{ secrets.SSH_USERNAME }}
-        ssh_host: ${{ secrets.SSH_INSTANCE_IP }}
+        ssh_key: ${{ secrets.BASTION_PRIVATE_KEY }}
+        ssh_user: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        ssh_host: ${{ secrets.BASTION_INSTANCE_IP }}
         source: .
         destination: /var/www/laravel/
 
     - name: Set Environment Variables
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SSH_INSTANCE_IP }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        key: ${{ secrets.BASTION_PRIVATE_KEY }}
         script: |
           cd /var/www/laravel
           cp .env.example .env
@@ -55,9 +55,9 @@ jobs:
     - name: Run Laravel server
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SSH_INSTANCE_IP }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        key: ${{ secrets.BASTION_PRIVATE_KEY }}
         script: |
           cd /var/www/laravel
           composer install
