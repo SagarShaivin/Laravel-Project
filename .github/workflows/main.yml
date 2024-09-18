@@ -1,4 +1,4 @@
-name: Deploy Laravel to GCP
+name: Deploy Laravel Application
 
 on:
   workflow_dispatch:
@@ -11,19 +11,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 1: Setup SSH Tunnel via Bastion Host
+      # Step 2: Setup SSH Tunnel via Bastion Host
       - name: Setup SSH Tunnel via Bastion Host
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.BASTION_INSTANCE_IP }}
-          username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
-          key: ${{ secrets.BASTION_PRIVATE_KEY }}
-          script: |
-            # Create SSH tunnel to private instance
-            ssh -i ${{ secrets.APP_PRIVATE_KEY }} -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.APP_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
-          timeout: 30s
+        run: |
+          ssh -i .ssh/id_rsa -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
+        timeout-minutes: 5
 
-      # Step 2: Setup SSH and Deploy Laravel on Private Instance
+      # Step 3: Wait for SSH Tunnel to establish
+      - name: Wait for SSH Tunnel
+        run: sleep 10
+
+      # Step 4: Test SSH Tunnel
+      - name: Test SSH Tunnel
+        run: ssh -i .ssh/id_rsa -p 2222 ${{ secrets.APP_INSTANCE_USERNAME }}@127.0.0.1 "echo 'SSH Tunnel Established'"
+
+      # Step 5: Setup and Deploy Laravel on Private Instance
       - name: Setup SSH and Deploy Laravel on Private Instance
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -49,7 +51,7 @@ jobs:
             # Adjust directory ownership and permissions
             sudo chown -R ${{ secrets.APP_INSTANCE_USERNAME }}:www-data /var/www/laravel
             sudo chmod -R 775 /var/www/laravel
-
+        
       # Step 3: Copy Laravel Files
       - name: Copy files to Laravel instance
         uses: picodebr/copy-action@v1
@@ -75,7 +77,7 @@ jobs:
             php artisan key:generate
             php artisan config:cache
 
-      # Step 5: Run Laravel server
+      # Step 5: Run Laravel Server
       - name: Run Laravel server
         uses: appleboy/ssh-action@v1.0.3
         with:
