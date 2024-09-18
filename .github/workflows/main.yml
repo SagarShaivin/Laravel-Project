@@ -19,8 +19,8 @@ jobs:
           username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
           key: ${{ secrets.BASTION_PRIVATE_KEY }}
           script: |
-            # Start SSH tunnel to connect through Bastion to the private instance
-            ssh -i ${{ secrets.APP_PRIVATE_KEY }} -o StrictHostKeyChecking=no -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.APP_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
+            # Create SSH tunnel to private instance
+            ssh -i ${{ secrets.APP_PRIVATE_KEY }} -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.APP_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
           timeout: 30s
 
       # Step 2: Setup SSH and Deploy Laravel on Private Instance
@@ -36,7 +36,7 @@ jobs:
             sudo add-apt-repository ppa:ondrej/php -y
             sudo apt-get update -y
 
-            # Install necessary software including required PHP extensions
+            # Install necessary software including PHP extensions
             sudo apt-get install -y php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql php7.4-curl unzip curl git
 
             # Install Composer
@@ -75,7 +75,7 @@ jobs:
             php artisan key:generate
             php artisan config:cache
 
-      # Step 5: Run Laravel Server
+      # Step 5: Run Laravel server
       - name: Run Laravel server
         uses: appleboy/ssh-action@v1.0.3
         with:
