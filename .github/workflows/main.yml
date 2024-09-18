@@ -12,9 +12,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Save SSH private key to a file
-      - name: Save SSH private key
+      # Step 2: Create .ssh directory and save SSH private key to a file
+      - name: Setup SSH key
         run: |
+          mkdir -p $HOME/.ssh
           echo "${{ secrets.APP_PRIVATE_KEY }}" > $HOME/.ssh/id_rsa
           chmod 600 $HOME/.ssh/id_rsa
 
