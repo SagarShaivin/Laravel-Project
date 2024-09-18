@@ -8,24 +8,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Setup SSH Tunnel via Bastion Host
+      # Step 2: Save SSH private key to a file
+      - name: Save SSH private key
+        run: |
+          echo "${{ secrets.APP_PRIVATE_KEY }}" > $HOME/.ssh/id_rsa
+          chmod 600 $HOME/.ssh/id_rsa
+
+      # Step 3: Setup SSH Tunnel via Bastion Host
       - name: Setup SSH Tunnel via Bastion Host
         run: |
-          ssh -i ${{ secrets.APP_PRIVATE_KEY }} -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
+          ssh -i $HOME/.ssh/id_rsa -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
         timeout-minutes: 5
 
-      # Step 3: Wait for SSH Tunnel to establish
+      # Step 4: Wait for SSH Tunnel to establish
       - name: Wait for SSH Tunnel
         run: sleep 10
 
-      # Step 4: Test SSH Tunnel
+      # Step 5: Test SSH Tunnel
       - name: Test SSH Tunnel
-        run: ssh -i ${{ secrets.APP_PRIVATE_KEY }} -p 2222 ${{ secrets.APP_INSTANCE_USERNAME }}@127.0.0.1 "echo 'SSH Tunnel Established'"
+        run: ssh -i $HOME/.ssh/id_rsa -p 2222 ${{ secrets.APP_INSTANCE_USERNAME }}@127.0.0.1 "echo 'SSH Tunnel Established'"
 
-      # Step 5: Setup and Deploy Laravel on Private Instance
+      # Step 6: Setup and Deploy Laravel on Private Instance
       - name: Setup SSH and Deploy Laravel on Private Instance
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -52,7 +59,7 @@ jobs:
             sudo chown -R ${{ secrets.APP_INSTANCE_USERNAME }}:www-data /var/www/laravel
             sudo chmod -R 775 /var/www/laravel
         
-      # Step 3: Copy Laravel Files
+      # Step 7: Copy Laravel Files
       - name: Copy files to Laravel instance
         uses: picodebr/copy-action@v1
         with:
@@ -63,7 +70,7 @@ jobs:
           source: .
           destination: /var/www/laravel/
 
-      # Step 4: Set Environment Variables
+      # Step 8: Set Environment Variables
       - name: Set Environment Variables
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -77,7 +84,7 @@ jobs:
             php artisan key:generate
             php artisan config:cache
 
-      # Step 5: Run Laravel Server
+      # Step 9: Run Laravel Server
       - name: Run Laravel server
         uses: appleboy/ssh-action@v1.0.3
         with:
