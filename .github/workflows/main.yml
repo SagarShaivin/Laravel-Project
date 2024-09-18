@@ -19,7 +19,7 @@ jobs:
 
       - name: Sync files to private instance via Bastion
         run: |
-          rsync -e "ssh -o ProxyJump=${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}" -avz ./your_laravel_files ${{ secrets.PRIVATE_USER }}@${{ secrets.PRIVATE_INSTANCE }}:/var/www/laravel
+          rsync -e "ssh -o ProxyJump=${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} -o StrictHostKeyChecking=no -vv" -avz ./your_laravel_files ${{ secrets.PRIVATE_USER }}@${{ secrets.PRIVATE_INSTANCE }}:/var/www/laravel
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER }}
