@@ -1,27 +1,66 @@
-name: Deploy to Private Instance
+name: Deploy Laravel to Private Instance
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    - name: Setup SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        key: ${{ secrets.BASTION_PRIVATE_KEY }}
+        script: |
+          echo "SSH setup complete. Ready to use rsync."
 
-      - name: Sync files to private instance via Bastion
-        run: |
-          rsync -e "ssh -o ProxyJump=${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} -o StrictHostKeyChecking=no -vv" -avz ./your_laravel_files ${{ secrets.PRIVATE_USER }}@${{ secrets.PRIVATE_INSTANCE }}:/var/www/laravel
-        env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER }}
-          PRIVATE_USER: ${{ secrets.PRIVATE_USER }}
-          PRIVATE_INSTANCE: ${{ secrets.PRIVATE_INSTANCE }}
+    - name: Sync files to private instance
+      run: |
+        rsync -e "ssh -o ProxyJump=${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -o StrictHostKeyChecking=no" -avz ./your_laravel_files ${{ secrets.PRIVATE_USER }}@${{ secrets.PRIVATE_INSTANCE }}:/var/www/laravel
+      env:
+        PRIVATE_USER: ${{ secrets.PRIVATE_USER }}
+        PRIVATE_INSTANCE: ${{ secrets.PRIVATE_INSTANCE }}
+
+    - name: Deploy Laravel on private instance
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.PRIVATE_INSTANCE }}
+        username: ${{ secrets.PRIVATE_USER }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        script: |
+          # Update package list and install necessary software
+          sudo apt-get update -y
+          sudo apt-get install -y php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql php7.4-curl unzip curl git
+          
+          # Install Composer
+          curl -sS https://getcomposer.org/installer | php
+          sudo mv composer.phar /usr/local/bin/composer
+          
+          # Ensure Laravel directory exists and adjust ownership
+          sudo mkdir -p /var/www/laravel
+          sudo chown -R ${{ secrets.PRIVATE_USER }}:www-data /var/www/laravel
+          sudo chmod -R 775 /var/www/laravel
+          
+          # Install Laravel dependencies
+          cd /var/www/laravel
+          composer install --no-dev --optimize-autoloader
+          
+          # Set up environment and cache configuration
+          cp .env.example .env
+          php artisan key:generate
+          php artisan config:cache
+          
+          # Run Laravel server
+          php artisan serve --host=0.0.0.0 --port=8000 > /var/log/laravel.log 2>&1 &
+          echo "Laravel server started"
+      env:
+        PRIVATE_USER: ${{ secrets.PRIVATE_USER }}
+        PRIVATE_INSTANCE: ${{ secrets.PRIVATE_INSTANCE }}
+        PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
