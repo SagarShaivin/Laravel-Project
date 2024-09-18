@@ -1,84 +1,90 @@
-  name: Deploy Laravel to GCP
-  
-  on:
-    workflow_dispatch:
-  
-  jobs:
-    deploy:
-      runs-on: ubuntu-latest
-      
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-  
-        - name: Setup SSH Tunnel via Bastion Host
-          uses: appleboy/ssh-action@v1.0.3
-          with:
-            host: ${{ secrets.BASTION_INSTANCE_IP }}
-            username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
-            key: ${{ secrets.BASTION_PRIVATE_KEY }}
-            script: |
-              # Start SSH tunnel to connect through Bastion to the private instance
-              ssh -i ${{ secrets.APP_PRIVATE_KEY }} -o StrictHostKeyChecking=no -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.APP_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
-  
-        - name: Setup SSH and Deploy Laravel on Private Instance
-          uses: appleboy/ssh-action@v1.0.3
-          with:
-            host: 127.0.0.1
-            port: 2222
-            username: ${{ secrets.APP_INSTANCE_USERNAME }}
-            key: ${{ secrets.APP_PRIVATE_KEY }}
-            script: |
-              # Add the repository for PHP 7.4
-              sudo add-apt-repository ppa:ondrej/php -y
-              sudo apt-get update -y
-  
-              # Install necessary software including required PHP extensions
-              sudo apt-get install -y php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql php7.4-curl unzip curl git
-  
-              # Install Composer
-              curl -sS https://getcomposer.org/installer | php
-              sudo mv composer.phar /usr/local/bin/composer
-  
-              # Ensure Laravel directory exists
-              sudo mkdir -p /var/www/laravel
-  
-              # Adjust directory ownership and permissions
-              sudo chown -R ${{ secrets.APP_INSTANCE_USERNAME }}:www-data /var/www/laravel
-              sudo chmod -R 775 /var/www/laravel
-  
-        - name: Copy files
-          uses: picodebr/copy-action@v1
-          with:
-            ssh_key: ${{ secrets.APP_PRIVATE_KEY }}
-            ssh_user: ${{ secrets.APP_INSTANCE_USERNAME }}
-            ssh_host: 127.0.0.1
-            ssh_port: 2222
-            source: .
-            destination: /var/www/laravel/
-  
-        - name: Set Environment Variables
-          uses: appleboy/ssh-action@v1.0.3
-          with:
-            host: 127.0.0.1
-            port: 2222
-            username: ${{ secrets.APP_INSTANCE_USERNAME }}
-            key: ${{ secrets.APP_PRIVATE_KEY }}
-            script: |
-              cd /var/www/laravel
-              cp .env.example .env
-              php artisan key:generate
-              php artisan config:cache
-  
-        - name: Run Laravel server
-          uses: appleboy/ssh-action@v1.0.3
-          with:
-            host: 127.0.0.1
-            port: 2222
-            username: ${{ secrets.APP_INSTANCE_USERNAME }}
-            key: ${{ secrets.APP_PRIVATE_KEY }}
-            script: |
-              cd /var/www/laravel
-              composer install
-              php artisan serve --host=0.0.0.0 --port=8000 > /var/log/laravel.log 2>&1 &
-              echo "Laravel server started"
+name: Deploy Laravel to GCP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 1: Setup SSH Tunnel via Bastion Host
+      - name: Setup SSH Tunnel via Bastion Host
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.BASTION_INSTANCE_IP }}
+          username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+          key: ${{ secrets.BASTION_PRIVATE_KEY }}
+          script: |
+            # Start SSH tunnel to connect through Bastion to the private instance
+            ssh -i ${{ secrets.APP_PRIVATE_KEY }} -o StrictHostKeyChecking=no -L 2222:${{ secrets.APP_INSTANCE_IP }}:22 ${{ secrets.APP_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} -N &
+          timeout: 30s
+
+      # Step 2: Setup SSH and Deploy Laravel on Private Instance
+      - name: Setup SSH and Deploy Laravel on Private Instance
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 127.0.0.1
+          port: 2222
+          username: ${{ secrets.APP_INSTANCE_USERNAME }}
+          key: ${{ secrets.APP_PRIVATE_KEY }}
+          script: |
+            # Add the repository for PHP 7.4
+            sudo add-apt-repository ppa:ondrej/php -y
+            sudo apt-get update -y
+
+            # Install necessary software including required PHP extensions
+            sudo apt-get install -y php7.4-cli php7.4-mbstring php7.4-xml php7.4-bcmath php7.4-zip php7.4-mysql php7.4-curl unzip curl git
+
+            # Install Composer
+            curl -sS https://getcomposer.org/installer | php
+            sudo mv composer.phar /usr/local/bin/composer
+
+            # Ensure Laravel directory exists
+            sudo mkdir -p /var/www/laravel
+
+            # Adjust directory ownership and permissions
+            sudo chown -R ${{ secrets.APP_INSTANCE_USERNAME }}:www-data /var/www/laravel
+            sudo chmod -R 775 /var/www/laravel
+
+      # Step 3: Copy Laravel Files
+      - name: Copy files to Laravel instance
+        uses: picodebr/copy-action@v1
+        with:
+          ssh_key: ${{ secrets.APP_PRIVATE_KEY }}
+          ssh_user: ${{ secrets.APP_INSTANCE_USERNAME }}
+          ssh_host: 127.0.0.1
+          ssh_port: 2222
+          source: .
+          destination: /var/www/laravel/
+
+      # Step 4: Set Environment Variables
+      - name: Set Environment Variables
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 127.0.0.1
+          port: 2222
+          username: ${{ secrets.APP_INSTANCE_USERNAME }}
+          key: ${{ secrets.APP_PRIVATE_KEY }}
+          script: |
+            cd /var/www/laravel
+            cp .env.example .env
+            php artisan key:generate
+            php artisan config:cache
+
+      # Step 5: Run Laravel Server
+      - name: Run Laravel server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 127.0.0.1
+          port: 2222
+          username: ${{ secrets.APP_INSTANCE_USERNAME }}
+          key: ${{ secrets.APP_PRIVATE_KEY }}
+          script: |
+            cd /var/www/laravel
+            composer install
+            php artisan serve --host=0.0.0.0 --port=8000 > /var/log/laravel.log 2>&1 &
+            echo "Laravel server started"
