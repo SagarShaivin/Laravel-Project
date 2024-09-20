@@ -38,7 +38,7 @@ jobs:
         host: ${{ secrets.PRIVATE_INSTANCE_IP }}
         username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
         key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
-        script: sudo apt-get install -y rsync
+        script: exit
 
 
     # Part 2: Copy Laravel Project from Bastion Host to Private Instance
