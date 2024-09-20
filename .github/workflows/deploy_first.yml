@@ -21,10 +21,9 @@ jobs:
         host: ${{ secrets.BASTION_INSTANCE_IP }}
         username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
         key: ${{ secrets.BASTION_PRIVATE_KEY }}
-        script: |
-          sudo apt-get install -y rsync
+        script: sudo apt-get install -y rsync
 
-    - name: Copy project files to Bastion Host
+    - name: Copy files to Bastion Host
       uses: picodebr/copy-action@v1
       with:
         ssh_key: ${{ secrets.BASTION_PRIVATE_KEY }}
@@ -33,22 +32,15 @@ jobs:
         source: .
         destination: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
 
-    - name: Copy private key to Bastion Host
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.BASTION_INSTANCE_IP }}
-        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
-        key: ${{ secrets.BASTION_PRIVATE_KEY }}
-        script: |
-          echo "${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}" > /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/private-instance-key.pem
-          chmod 600 /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/private-instance-key.pem
-
-    - name: SSH into Private Instance and Install PHP and Dependencies
+    - name: SSH from Bastion Host into Private Instance and Install PHP and Dependencies
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRIVATE_INSTANCE_IP }}
         username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
         key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
+        port: 22
+        timeout: 1200s   # Increase timeout to 20 minutes
+        command_timeout: 1800s # Set command timeout to 30 minutes
         script: |
           sudo apt-get update
           sudo apt-get install -y php php-cli php-mbstring php-xml php-bcmath php-zip php-mysqlnd php-curl unzip curl git
@@ -58,16 +50,15 @@ jobs:
           sudo chown -R ${{ secrets.PRIVATE_INSTANCE_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
-    - name: Copy files from Bastion to Private Instance using SCP
-      run: |
-        ssh -o StrictHostKeyChecking=no -i ${{ secrets.BASTION_PRIVATE_KEY }} ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} "scp -o StrictHostKeyChecking=no -i /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/private-instance-key.pem -r /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel ${{ secrets.PRIVATE_INSTANCE_USERNAME }}@${{ secrets.PRIVATE_INSTANCE_IP }}:/var/www/"
-
     - name: Install Dependencies and Deploy Laravel
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRIVATE_INSTANCE_IP }}
         username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
         key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
+        port: 22
+        timeout: 1200s
+        command_timeout: 1800s
         script: |
           cd /var/www/laravel
           composer install --no-dev --optimize-autoloader
