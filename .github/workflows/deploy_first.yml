@@ -32,15 +32,44 @@ jobs:
         source: .
         destination: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
 
-    - name: SSH from Bastion Host into Private Instance and Install PHP and Dependencies
+    # Part 1: SSH from Bastion Host into Private Instance (Check Connectivity)
+    - name: SSH from Bastion Host into Private Instance (Check Connectivity)
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRIVATE_INSTANCE_IP }}
         username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
         key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
         port: 22
-        timeout: 1200s   # Increase timeout to 20 minutes
-        command_timeout: 1800s # Set command timeout to 30 minutes
+        timeout: 300s  # Reduced timeout for quick connection test
+        command_timeout: 300s
+        script: |
+          echo "SSH connection successful!"
+          exit 0  # Make sure it exits with 0 to indicate success
+
+    # Part 2: Copy Laravel Project from Bastion Host to Private Instance
+    - name: Copy Laravel Project from Bastion to Private Instance
+      if: success()  # This step will only run if the previous SSH step is successful
+      uses: picodebr/copy-action@v1
+      with:
+        ssh_key: ${{ secrets.BASTION_PRIVATE_KEY }}
+        ssh_user: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        ssh_host: ${{ secrets.BASTION_INSTANCE_IP }}
+        source: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel/
+        destination: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}@${{ secrets.PRIVATE_INSTANCE_IP }}:/var/www/laravel/
+        port: 22
+
+
+    # Part 3: Install Dependencies on Private Instance
+    - name: Install PHP and Dependencies on Private Instance
+      if: success()  # This step will only run if the previous SSH step is successful
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.PRIVATE_INSTANCE_IP }}
+        username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
+        key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
+        port: 22
+        timeout: 1200s   # Increase timeout to 20 minutes for installation
+        command_timeout: 1800s # Set command timeout to 30 minutes for installation
         script: |
           sudo apt-get update
           sudo apt-get install -y php php-cli php-mbstring php-xml php-bcmath php-zip php-mysqlnd php-curl unzip curl git
