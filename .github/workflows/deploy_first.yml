@@ -33,18 +33,18 @@ jobs:
         destination: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
 
     # Part 1: SSH from Bastion Host into Private Instance (Check Connectivity)
-    - name: SSH from Bastion Host into Private Instance (Check Connectivity)
+    - name: Check SSH Connection to Private Instance
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRIVATE_INSTANCE_IP }}
         username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
         key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
         port: 22
-        timeout: 300s  # Reduced timeout for quick connection test
-        command_timeout: 300s
+        request_pty: false  # Disable pseudo-terminal allocation to prevent hanging
         script: |
           echo "SSH connection successful!"
-          exit 0  # Make sure it exits with 0 to indicate success
+          exit 0
+
 
     # Part 2: Copy Laravel Project from Bastion Host to Private Instance
     - name: Copy Laravel Project from Bastion to Private Instance
