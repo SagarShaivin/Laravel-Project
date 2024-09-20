@@ -12,6 +12,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Install rsync on local machine
+      run: sudo apt-get install -y rsync
+
+    - name: Install rsync on Bastion Host
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        key: ${{ secrets.BASTION_PRIVATE_KEY }}
+        script: |
+          sudo yum install -y rsync || sudo apt-get install -y rsync
+
     - name: Copy files to Bastion Host
       uses: picodebr/copy-action@v1
       with:
@@ -20,7 +32,6 @@ jobs:
         ssh_host: ${{ secrets.BASTION_INSTANCE_IP }}
         source: .
         destination: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
-        recursive: true
 
     - name: SSH into Private Instance and Install PHP and Dependencies
       uses: appleboy/ssh-action@v1.0.3
