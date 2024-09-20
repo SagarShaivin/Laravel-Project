@@ -22,9 +22,16 @@ jobs:
           mkdir -p /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
           exit
 
-    - name: Copy files to Bastion Host using SCP
-      run: |
-        scp -o StrictHostKeyChecking=no -i ${{ secrets.BASTION_PRIVATE_KEY }} -r . ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }}:/home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
+    - name: Copy files to Bastion Host
+      uses: picodebr/ssh-action@v1
+      with:
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        private_key: ${{ secrets.BASTION_PRIVATE_KEY }}
+        source: .
+        target: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
+        port: 22  # You can adjust the port if it's different
+        recursive: true
 
     - name: SSH into Private Instance and Install PHP and Dependencies
       uses: appleboy/ssh-action@v1.0.3
@@ -42,9 +49,16 @@ jobs:
           sudo chown -R ${{ secrets.PRIVATE_INSTANCE_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
-    - name: Copy files from Bastion to Private Instance using SCP
-      run: |
-        ssh -o StrictHostKeyChecking=no -i ${{ secrets.BASTION_PRIVATE_KEY }} ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} "scp -o StrictHostKeyChecking=no -r /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel ${{ secrets.PRIVATE_INSTANCE_USERNAME }}@${{ secrets.PRIVATE_INSTANCE_IP }}:/var/www/"
+    - name: Copy files from Bastion to Private Instance
+      uses: picodebr/ssh-action@v1
+      with:
+        host: ${{ secrets.BASTION_INSTANCE_IP }}
+        username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
+        private_key: ${{ secrets.BASTION_PRIVATE_KEY }}
+        source: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
+        target: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}@${{ secrets.PRIVATE_INSTANCE_IP }}:/var/www/
+        port: 22
+        recursive: true
 
     - name: Install Dependencies and Deploy Laravel
       uses: appleboy/ssh-action@v1.0.3
