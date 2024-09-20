@@ -12,26 +12,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: SSH into Bastion Host and Copy Files
+    - name: SSH into Bastion Host and Create Directory
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.BASTION_INSTANCE_IP }}
         username: ${{ secrets.BASTION_INSTANCE_USERNAME }}
         key: ${{ secrets.BASTION_PRIVATE_KEY }}
         script: |
-          # Create a directory for the Laravel project on the bastion
           mkdir -p /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
-          # Exit the bastion host
           exit
 
-    - name: Copy files to Bastion Host
-      uses: picodebr/copy-action@v1
-      with:
-        ssh_key: ${{ secrets.BASTION_PRIVATE_KEY }}
-        ssh_user: ${{ secrets.BASTION_INSTANCE_USERNAME }}
-        ssh_host: ${{ secrets.BASTION_INSTANCE_IP }}
-        source: .
-        destination: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
+    - name: Copy files to Bastion Host using SCP
+      run: |
+        scp -o StrictHostKeyChecking=no -i ${{ secrets.BASTION_PRIVATE_KEY }} -r . ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }}:/home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
 
     - name: SSH into Private Instance and Install PHP and Dependencies
       uses: appleboy/ssh-action@v1.0.3
@@ -40,28 +33,18 @@ jobs:
         username: ${{ secrets.PRIVATE_INSTANCE_USERNAME }}
         key: ${{ secrets.PRIVATE_INSTANCE_PRIVATE_KEY }}
         script: |
-          # Install PHP 8.2 and necessary extensions
           sudo dnf module reset php -y
           sudo dnf module enable php:8.2 -y
           sudo dnf install -y php php-cli php-mbstring php-xml php-bcmath php-zip php-mysqlnd php-curl unzip curl git
-
-          # Install Composer
           curl -sS https://getcomposer.org/installer | php
           sudo mv composer.phar /usr/local/bin/composer
-
-          # Ensure Laravel directory exists
           sudo mkdir -p /var/www/laravel
           sudo chown -R ${{ secrets.PRIVATE_INSTANCE_USERNAME }}:www-data /var/www/laravel
           sudo chmod -R 775 /var/www/laravel
 
-    - name: Copy files from Bastion to Private Instance
-      uses: picodebr/copy-action@v1
-      with:
-        ssh_key: ${{ secrets.BASTION_PRIVATE_KEY }}
-        ssh_user: ${{ secrets.BASTION_INSTANCE_USERNAME }}
-        ssh_host: ${{ secrets.BASTION_INSTANCE_IP }}
-        source: /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel
-        destination: /var/www/laravel
+    - name: Copy files from Bastion to Private Instance using SCP
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ${{ secrets.BASTION_PRIVATE_KEY }} ${{ secrets.BASTION_INSTANCE_USERNAME }}@${{ secrets.BASTION_INSTANCE_IP }} "scp -o StrictHostKeyChecking=no -r /home/${{ secrets.BASTION_INSTANCE_USERNAME }}/laravel ${{ secrets.PRIVATE_INSTANCE_USERNAME }}@${{ secrets.PRIVATE_INSTANCE_IP }}:/var/www/"
 
     - name: Install Dependencies and Deploy Laravel
       uses: appleboy/ssh-action@v1.0.3
